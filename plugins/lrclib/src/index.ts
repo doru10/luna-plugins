@@ -1,5 +1,19 @@
-import { LunaUnload, Tracer, ftch } from "@luna/core";
-import { MediaItem, redux } from "@luna/lib";
+import type { LunaUnload } from "@luna/core";
+
+const lunaCore = (globalThis as any).luna?.core?.modules?.["@luna/core"];
+
+if (!lunaCore) {
+    throw new Error("@luna/core is not loaded");
+}
+
+const { Tracer, ftch } = lunaCore;
+const lunaLib = (globalThis as any).luna?.core?.modules?.["@luna/lib"];
+
+if (!lunaLib) {
+    throw new Error("@luna/lib is not loaded");
+}
+
+const { MediaItem, redux } = lunaLib;
 
 export const { trace } = Tracer("[LRCLIB]");
 export const unloads = new Set<LunaUnload>();
