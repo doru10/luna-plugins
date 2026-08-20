@@ -59,52 +59,67 @@ async function getLRCLIBLyrics(
     }
 }
 
-redux.intercept(
-    "content/LOAD_ITEM_LYRICS_FAIL",
-    unloads,
-    async (payload) => {
+MediaItem.onMediaTransition(unloads, async (track) => {
+    try {
+        const [title, artist, album] = await Promise.all([
+            track.title(),
+            track.artist(),
+            track.album(),
+        ]);
+
+        if (!title) return;
+
+        const artistName = artist?.name ?? "";
+        const albumName = album ? await album.title() : "";
+
+        trace.log(`Track changed: ${title} - ${artistName}`);
+
         try {
-            const track = await MediaItem.fromId(payload.itemId, "track");
+            const tidalLyrics = await track.lyrics();
 
-            const [title, artist, album] = await Promise.all([
-                track.title(),
-                track.artist(),
-                track.album(),
-            ]);
+            const hasTidalLyrics =
+                !!tidalLyrics &&
+                (
+                    (typeof tidalLyrics.lyrics === "string" && tidalLyrics.lyrics.trim().length > 0) ||
+                    (typeof tidalLyrics.subtitles === "string" && tidalLyrics.subtitles.trim().length > 0) ||
+                    (typeof tidalLyrics.text === "string" && tidalLyrics.text.trim().length > 0)
+                );
 
-            if (!title) return;
-
-            const artistName = artist?.name ?? "";
-            const albumName = album ? await album.title() : "";
-
-            trace.log(`TIDAL lyrics failed: ${title} - ${artistName}`);
-
-            const lyrics = await getLRCLIBLyrics(
-                title,
-                artistName,
-                albumName,
-            );
-
-            if (!lyrics) {
-                trace.log(`LRCLIB also has no lyrics: ${title}`);
+            if (hasTidalLyrics) {
+                trace.log(`TIDAL already has lyrics: ${title}`);
                 return;
             }
 
-            trace.log(`LRCLIB FOUND LYRICS: ${title}`);
-
-            await redux.actions["content/LOAD_ITEM_LYRICS_SUCCESS"]({
-                trackId: payload.itemId,
-                lyricsProvider: "LRCLIB",
-                providerCommontrackId: lyrics.id ?? payload.itemId,
-                providerLyricsId: lyrics.id ?? payload.itemId,
-                lyrics: lyrics.plainLyrics ?? "",
-                subtitles: lyrics.syncedLyrics ?? null,
-                isRightToLeft: false,
-            });
-
-            trace.log(`Injected LRCLIB lyrics into TIDAL UI: ${title}`);
-        } catch (error) {
-            trace.msg.err("LRCLIB fallback error:", error);
+            trace.log(`TIDAL has no usable lyrics: ${title}`);
+        } catch {
+            trace.log(`TIDAL lyrics request failed: ${title}`);
         }
-    },
-);
+
+        const lyrics = await getLRCLIBLyrics(
+            title,
+            artistName,
+            albumName,
+        );
+
+        if (!lyrics) {
+            trace.log(`LRCLIB also has no lyrics: ${title}`);
+            return;
+        }
+
+        trace.log(`LRCLIB FOUND LYRICS: ${title}`);
+
+        await redux.actions["content/LOAD_ITEM_LYRICS_SUCCESS"]({
+            trackId: track.id,
+            lyricsProvider: "LRCLIB",
+            providerCommontrackId: lyrics.id ?? track.id,
+            providerLyricsId: lyrics.id ?? track.id,
+            lyrics: lyrics.plainLyrics ?? "",
+            subtitles: lyrics.syncedLyrics ?? null,
+            isRightToLeft: false,
+        });
+
+        trace.log(`Injected LRCLIB lyrics into TIDAL store: ${title}`);
+    } catch (error) {
+        trace.msg.err("LRCLIB transition fallback error:", error);
+    }
+});
