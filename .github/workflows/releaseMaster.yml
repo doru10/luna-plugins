@@ -29,10 +29,8 @@ jobs:
       path: ./dist/
 
    - name: Publish latest release on GitHub
-     uses: marvinpinto/action-automatic-releases@latest
-     with:
-      repo_token: ${{ secrets.GITHUB_TOKEN }}
-      automatic_release_tag: latest
-      prerelease: false
-      title: Latest Release
-      files: ./dist/**
+     env:
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+     run: |
+      gh release delete latest --yes --cleanup-tag || true
+      gh release create latest ./dist/** --title "Latest Release" --latest
