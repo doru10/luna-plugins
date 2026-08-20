@@ -5,6 +5,6 @@
 		"name": "doru10",
 		"url": "https://github.com/doru10"
 	},
-	"main": "./src/index.ts",
+	"main": "./src/index.tsx",
 	"type": "module"
 }

@@ -1,9 +1,18 @@
 import { LunaUnload, Tracer, ftch } from "@luna/core";
 import { MediaItem } from "@luna/lib";
-import { setLyrics } from "./lyricsPanel";
+import { Page } from "@luna/ui";
+import { LyricsPanel, setLyrics } from "./lyricsPanel";
 
 export const { trace } = Tracer("[LRCLIB]");
 export const unloads = new Set<LunaUnload>();
+
+export const lyricsPage = Page.register(
+    "lrclib",
+    unloads,
+    <LyricsPanel />,
+);
+
+lyricsPage.open();
 
 type LRCLIBResult = {
     id?: number;
@@ -87,6 +96,7 @@ MediaItem.onMediaTransition(unloads, async (track) => {
                     plainLyrics: tidalLyrics.lyrics,
                     syncedLyrics: tidalLyrics.subtitles,
                 });
+                return;
             } else {
                 trace.log(`TIDAL returned no usable lyrics: ${title}`);
             }
