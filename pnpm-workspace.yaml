@@ -1,8 +1,5 @@
 packages:
   - "plugins/*"
-allowBuilds:
-  electron: false
-  esbuild: false
 
 onlyBuiltDependencies:
   - electron
