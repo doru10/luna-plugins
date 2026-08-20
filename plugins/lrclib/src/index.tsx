@@ -1,4 +1,4 @@
-import React from "react";
+import { createElement } from "react";
 import { LunaUnload, Tracer, ftch } from "@luna/core";
 import { MediaItem } from "@luna/lib";
 import { Page } from "@luna/ui";
@@ -10,7 +10,7 @@ export const unloads = new Set<LunaUnload>();
 export const lyricsPage = Page.register(
     "lrclib",
     unloads,
-    <LyricsPanel />,
+    createElement(LyricsPanel),
 );
 
 lyricsPage.open();
