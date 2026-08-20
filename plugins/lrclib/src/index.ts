@@ -1,5 +1,6 @@
 import { LunaUnload, Tracer, ftch } from "@luna/core";
 import { MediaItem } from "@luna/lib";
+import { setLyrics } from "./lyricsPanel";
 
 export const { trace } = Tracer("[LRCLIB]");
 export const unloads = new Set<LunaUnload>();
@@ -77,10 +78,18 @@ MediaItem.onMediaTransition(unloads, async (track) => {
 
             if (hasTidalLyrics) {
                 trace.log(`TIDAL has usable lyrics: ${title}`);
-                return;
-            }
+                trace.log("Lyrics:", tidalLyrics.lyrics);
+                trace.log("Subtitles:", tidalLyrics.subtitles);
 
-            trace.log(`TIDAL returned no usable lyrics: ${title}`);
+                setLyrics({
+                    title,
+                    artist: artistName,
+                    plainLyrics: tidalLyrics.lyrics,
+                    syncedLyrics: tidalLyrics.subtitles,
+                });
+            } else {
+                trace.log(`TIDAL returned no usable lyrics: ${title}`);
+            }
         } catch (error) {
             trace.log(`TIDAL lyrics request failed: ${title}`);
         }
@@ -98,6 +107,13 @@ MediaItem.onMediaTransition(unloads, async (track) => {
 
         trace.log(`LRCLIB FOUND LYRICS: ${title}`);
         trace.log(lyrics);
+
+        setLyrics({
+            title,
+            artist: artistName,
+            plainLyrics: lyrics.plainLyrics,
+            syncedLyrics: lyrics.syncedLyrics,
+        });
     } catch (error) {
         trace.msg.err("LRCLIB error:", error);
     }
