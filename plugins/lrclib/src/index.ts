@@ -59,6 +59,14 @@ async function getLRCLIBLyrics(
     }
 }
 
+
+trace.log(
+    "Available lyrics action builders:",
+    Object.keys(lunaCore.buildActions ?? {}).filter((name) =>
+        name.includes("LYRICS")
+    ),
+);
+
 MediaItem.onMediaTransition(unloads, async (track) => {
     try {
         const [title, artist, album] = await Promise.all([
@@ -73,6 +81,23 @@ MediaItem.onMediaTransition(unloads, async (track) => {
         const albumName = album ? await album.title() : "";
 
         trace.log(`Track changed: ${title} - ${artistName}`);
+
+        const lyricsRequestBuilder =
+            lunaCore.buildActions?.["content/LOAD_ITEM_LYRICS"];
+
+        if (typeof lyricsRequestBuilder === "function") {
+            try {
+                const sampleAction = lyricsRequestBuilder({
+                    itemId: track.id,
+                    itemType: "track",
+                });
+
+                trace.log("Sample LOAD_ITEM_LYRICS Redux action:", sampleAction);
+            } catch (error) {
+                trace.log("Could not inspect lyrics action builder:", error);
+            }
+        }
+
 
         try {
             const tidalLyrics = await track.lyrics();
