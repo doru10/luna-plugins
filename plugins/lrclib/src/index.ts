@@ -133,7 +133,7 @@ MediaItem.onMediaTransition(unloads, async (track) => {
 
         trace.log(`LRCLIB FOUND LYRICS: ${title}`);
 
-        await redux.actions["content/LOAD_ITEM_LYRICS_SUCCESS"]({
+        const lyricsPayload = {
             trackId: track.id,
             lyricsProvider: "LRCLIB",
             providerCommontrackId: lyrics.id ?? track.id,
@@ -141,7 +141,14 @@ MediaItem.onMediaTransition(unloads, async (track) => {
             lyrics: lyrics.plainLyrics ?? "",
             subtitles: lyrics.syncedLyrics ?? null,
             isRightToLeft: false,
-        });
+        };
+
+        trace.log("Dispatching LRCLIB lyrics payload:", lyricsPayload);
+
+        redux.store.dispatch({
+            type: "content/LOAD_ITEM_LYRICS_SUCCESS",
+            payload: lyricsPayload,
+        } as any);
 
         trace.log(`Injected LRCLIB lyrics into TIDAL store: ${title}`);
     } catch (error) {
