@@ -65,12 +65,24 @@ MediaItem.onMediaTransition(unloads, async (track) => {
         try {
             const tidalLyrics = await track.lyrics();
 
-            if (tidalLyrics) {
-                trace.log(`TIDAL has lyrics: ${title}`);
+            trace.log("TIDAL lyrics object:", tidalLyrics);
+
+            const hasTidalLyrics =
+                !!tidalLyrics &&
+                (
+                    (typeof tidalLyrics.lyrics === "string" && tidalLyrics.lyrics.trim().length > 0) ||
+                    (typeof tidalLyrics.subtitles === "string" && tidalLyrics.subtitles.trim().length > 0) ||
+                    (typeof tidalLyrics.text === "string" && tidalLyrics.text.trim().length > 0)
+                );
+
+            if (hasTidalLyrics) {
+                trace.log(`TIDAL has usable lyrics: ${title}`);
                 return;
             }
-        } catch {
-            trace.log(`TIDAL has no lyrics: ${title}`);
+
+            trace.log(`TIDAL returned no usable lyrics: ${title}`);
+        } catch (error) {
+            trace.log(`TIDAL lyrics request failed: ${title}`);
         }
 
         const lyrics = await getLRCLIBLyrics(
