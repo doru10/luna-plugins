@@ -28,17 +28,17 @@ type LRCLIBResult = {
     albumName?: string;
 };
 
-type DisplayLyrics = {
-    title: string;
-    artist: string;
-    source: "TIDAL" | "LRCLIB";
-    text: string;
+type NativeLyricsPayload = {
+    trackId: string | number;
+    lyricsProvider: string;
+    providerCommontrackId: string | number;
+    providerLyricsId: string | number;
+    lyrics: string;
+    subtitles: string | null;
+    isRightToLeft: boolean;
 };
 
-let currentLyrics: DisplayLyrics | null = null;
-let lyricsButton: HTMLButtonElement | null = null;
-let lyricsOverlay: HTMLDivElement | null = null;
-let lastTrackId: string | null = null;
+let transitionId = 0;
 
 async function getLRCLIBLyrics(
     title: string,
@@ -72,198 +72,63 @@ async function getLRCLIBLyrics(
     }
 }
 
-function cleanSyncedLyrics(value?: string | null) {
+function plainFromSynced(value?: string | null): string {
     if (!value) return "";
 
     return value
-        .replace(/^\[[0-9:.]+\]\s*/gm, "")
+        .split("\n")
+        .map((line) => line.replace(/^\[[0-9:.]+\]\s*/, ""))
+        .join("\n")
         .trim();
 }
 
-function closeLyricsOverlay() {
-    lyricsOverlay?.remove();
-    lyricsOverlay = null;
-}
+async function getLyricsSuccessBuilder(timeoutMs = 4000) {
+    const start = Date.now();
 
-function openLyricsOverlay() {
-    if (!currentLyrics) return;
+    while (Date.now() - start < timeoutMs) {
+        const builder =
+            lunaCore.buildActions?.["content/LOAD_ITEM_LYRICS_SUCCESS"];
 
-    closeLyricsOverlay();
-
-    const overlay = document.createElement("div");
-    lyricsOverlay = overlay;
-
-    Object.assign(overlay.style, {
-        position: "fixed",
-        inset: "0",
-        zIndex: "2147483646",
-        background: "rgba(0, 0, 0, 0.72)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "32px",
-        boxSizing: "border-box",
-    });
-
-    const panel = document.createElement("div");
-
-    Object.assign(panel.style, {
-        width: "min(760px, 100%)",
-        maxHeight: "85vh",
-        background: "#111",
-        color: "#fff",
-        borderRadius: "16px",
-        boxShadow: "0 20px 80px rgba(0, 0, 0, 0.6)",
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-    });
-
-    const header = document.createElement("div");
-
-    Object.assign(header.style, {
-        padding: "22px 24px 16px",
-        borderBottom: "1px solid rgba(255,255,255,0.12)",
-        position: "relative",
-    });
-
-    const title = document.createElement("div");
-    title.textContent = currentLyrics.title;
-
-    Object.assign(title.style, {
-        fontSize: "22px",
-        fontWeight: "700",
-        paddingRight: "50px",
-    });
-
-    const subtitle = document.createElement("div");
-    subtitle.textContent =
-        `${currentLyrics.artist} • ${currentLyrics.source}`;
-
-    Object.assign(subtitle.style, {
-        marginTop: "6px",
-        opacity: "0.65",
-        fontSize: "14px",
-    });
-
-    const close = document.createElement("button");
-    close.textContent = "×";
-    close.title = "Close lyrics";
-
-    Object.assign(close.style, {
-        position: "absolute",
-        right: "18px",
-        top: "14px",
-        border: "0",
-        background: "transparent",
-        color: "white",
-        fontSize: "32px",
-        cursor: "pointer",
-    });
-
-    close.onclick = closeLyricsOverlay;
-
-    header.append(title, subtitle, close);
-
-    const body = document.createElement("div");
-    body.textContent = currentLyrics.text;
-
-    Object.assign(body.style, {
-        padding: "24px",
-        overflowY: "auto",
-        whiteSpace: "pre-wrap",
-        fontSize: "20px",
-        lineHeight: "1.7",
-    });
-
-    panel.append(header, body);
-    overlay.append(panel);
-
-    overlay.addEventListener("click", (event) => {
-        if (event.target === overlay) {
-            closeLyricsOverlay();
+        if (typeof builder === "function") {
+            return builder;
         }
-    });
 
-    document.body.appendChild(overlay);
-}
-
-function ensureLyricsButton() {
-    if (lyricsButton?.isConnected) {
-        return lyricsButton;
+        await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
-    const button = document.createElement("button");
-    button.id = "lrclib-lyrics-button";
-    button.textContent = "♫ Lyrics";
-    button.title = "Open lyrics";
-
-    Object.assign(button.style, {
-        position: "fixed",
-        right: "24px",
-        bottom: "100px",
-        zIndex: "2147483645",
-        border: "1px solid rgba(255,255,255,0.18)",
-        borderRadius: "999px",
-        padding: "10px 16px",
-        background: "rgba(20,20,20,0.94)",
-        color: "white",
-        fontSize: "14px",
-        fontWeight: "600",
-        cursor: "pointer",
-        boxShadow: "0 8px 30px rgba(0,0,0,0.35)",
-        display: "none",
-    });
-
-    button.onclick = openLyricsOverlay;
-
-    document.body.appendChild(button);
-    lyricsButton = button;
-
-    return button;
+    return null;
 }
 
-function hideLyricsButton() {
-    currentLyrics = null;
-    closeLyricsOverlay();
+async function injectNativeLyrics(payload: NativeLyricsPayload) {
+    const builder = await getLyricsSuccessBuilder();
 
-    if (lyricsButton) {
-        lyricsButton.style.display = "none";
+    if (!builder) {
+        const available = Object.keys(lunaCore.buildActions ?? {})
+            .filter((name) => name.includes("LYRICS"));
+
+        trace.log(
+            "Native LOAD_ITEM_LYRICS_SUCCESS builder unavailable.",
+            available,
+        );
+
+        return false;
     }
+
+    trace.log("Native lyrics SUCCESS builder found!");
+
+    const action = builder(payload);
+
+    trace.log("Built native lyrics Redux action:", action);
+
+    redux.store.dispatch(action);
+
+    return true;
 }
-
-function showLyrics(data: DisplayLyrics) {
-    currentLyrics = data;
-
-    const button = ensureLyricsButton();
-    button.textContent =
-        data.source === "LRCLIB"
-            ? "♫ Lyrics • LRCLIB"
-            : "♫ Lyrics";
-
-    button.style.display = "block";
-}
-
-ensureLyricsButton();
-
-unloads.add(() => {
-    closeLyricsOverlay();
-    lyricsButton?.remove();
-    lyricsButton = null;
-    currentLyrics = null;
-});
 
 MediaItem.onMediaTransition(unloads, async (track: any) => {
+    const thisTransition = ++transitionId;
+
     try {
-        const trackId = String(track.id);
-
-        if (trackId === lastTrackId) {
-            return;
-        }
-
-        lastTrackId = trackId;
-        hideLyricsButton();
-
         const [title, artist, album] = await Promise.all([
             track.title(),
             track.artist(),
@@ -280,30 +145,25 @@ MediaItem.onMediaTransition(unloads, async (track: any) => {
         try {
             const tidalLyrics = await track.lyrics();
 
-            const tidalPlain =
-                typeof tidalLyrics?.lyrics === "string"
-                    ? tidalLyrics.lyrics.trim()
-                    : typeof tidalLyrics?.text === "string"
-                      ? tidalLyrics.text.trim()
-                      : "";
+            const hasTidalLyrics =
+                !!tidalLyrics &&
+                (
+                    (
+                        typeof tidalLyrics.lyrics === "string" &&
+                        tidalLyrics.lyrics.trim().length > 0
+                    ) ||
+                    (
+                        typeof tidalLyrics.subtitles === "string" &&
+                        tidalLyrics.subtitles.trim().length > 0
+                    ) ||
+                    (
+                        typeof tidalLyrics.text === "string" &&
+                        tidalLyrics.text.trim().length > 0
+                    )
+                );
 
-            const tidalSynced =
-                typeof tidalLyrics?.subtitles === "string"
-                    ? tidalLyrics.subtitles.trim()
-                    : "";
-
-            if (tidalPlain || tidalSynced) {
+            if (hasTidalLyrics) {
                 trace.log(`TIDAL already has lyrics: ${title}`);
-
-                showLyrics({
-                    title,
-                    artist: artistName,
-                    source: "TIDAL",
-                    text:
-                        tidalPlain ||
-                        cleanSyncedLyrics(tidalSynced),
-                });
-
                 return;
             }
 
@@ -318,6 +178,11 @@ MediaItem.onMediaTransition(unloads, async (track: any) => {
             albumName,
         );
 
+        if (thisTransition !== transitionId) {
+            trace.log(`Ignoring stale LRCLIB result: ${title}`);
+            return;
+        }
+
         if (!lyrics) {
             trace.log(`LRCLIB also has no lyrics: ${title}`);
             return;
@@ -325,38 +190,28 @@ MediaItem.onMediaTransition(unloads, async (track: any) => {
 
         trace.log(`LRCLIB FOUND LYRICS: ${title}`);
 
-        const displayText =
+        const plainLyrics =
             lyrics.plainLyrics?.trim() ||
-            cleanSyncedLyrics(lyrics.syncedLyrics);
+            plainFromSynced(lyrics.syncedLyrics);
 
-        if (!displayText) return;
-
-        showLyrics({
-            title,
-            artist: artistName,
-            source: "LRCLIB",
-            text: displayText,
-        });
-
-        const lyricsPayload = {
+        const payload: NativeLyricsPayload = {
             trackId: track.id,
             lyricsProvider: "LRCLIB",
             providerCommontrackId: lyrics.id ?? track.id,
             providerLyricsId: lyrics.id ?? track.id,
-            lyrics: lyrics.plainLyrics ?? "",
+            lyrics: plainLyrics,
             subtitles: lyrics.syncedLyrics ?? null,
             isRightToLeft: false,
         };
 
-        try {
-            redux.store.dispatch({
-                type: "content/LOAD_ITEM_LYRICS_SUCCESS",
-                payload: lyricsPayload,
-            });
+        trace.log("LRCLIB native payload:", payload);
 
-            trace.log(`Injected LRCLIB lyrics into TIDAL store: ${title}`);
-        } catch (error) {
-            trace.log("Native lyrics store injection failed:", error);
+        const injected = await injectNativeLyrics(payload);
+
+        if (injected) {
+            trace.log(
+                `Injected LRCLIB through TIDAL native lyrics action: ${title}`,
+            );
         }
     } catch (error) {
         trace.msg.err("LRCLIB transition fallback error:", error);
