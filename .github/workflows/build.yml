@@ -11,23 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Modify package.json for dev branch
-        run: |
-          if [ "${{ github.ref_name }}" = "dev" ]; then
-            sed -i 's/"@vmohammad\/plugins"/"@vmohammad\/plugins (dev)"/g' package.json
-            echo "Modified package.json name for dev branch"
-          else
-            echo "Not on dev branch, keeping original package.json name"
-          fi
-
-      - name: Delete Unwanted plugins for production
-        run: |
-          if [ "${{ github.ref_name }}" = "master" ]; then
-            rm -rf plugins/betterPlayer plugins/lrclib plugins/translate # lrclib is broken as of now, betterPlayer requires an exe that doesnt get auto installed
-            echo "Deleted unwanted plugins for production build"
-          else
-            echo "Not on master branch, keeping all plugins"
-          fi
 
       - name: Install pnpm 📥
         uses: pnpm/action-setup@v4

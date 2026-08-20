@@ -1,10 +1,9 @@
 {
-	"name": "@vmohammad/lrclib",
-	"description": "Uses lrclib.net to fetch lyrics when Tidal (Musixmatch) fails",
+	"name": "@doru10/lrclib",
+	"description": "LRCLIB lyrics fallback for current TidaLuna",
 	"author": {
-		"name": "vMohammad",
-		"url": "https://vmohammad.dev",
-		"avatarUrl": "https://avatars.githubusercontent.com/u/62218284?v=4"
+		"name": "doru10",
+		"url": "https://github.com/doru10"
 	},
 	"main": "./src/index.ts",
 	"type": "module"

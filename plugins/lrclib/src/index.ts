@@ -1,79 +1,92 @@
-import { ftch, LunaUnload, Tracer } from "@luna/core";
-import { MediaItem, redux } from "@luna/lib";
+import { LunaUnload, Tracer, ftch } from "@luna/core";
+import { MediaItem } from "@luna/lib";
 
-export const { trace } = Tracer("[lrclib]");
+export const { trace } = Tracer("[LRCLIB]");
 export const unloads = new Set<LunaUnload>();
 
-interface LyricsData {
+type LRCLIBResult = {
     id?: number;
-    name?: string;
+    plainLyrics?: string | null;
+    syncedLyrics?: string | null;
     trackName?: string;
     artistName?: string;
     albumName?: string;
-    duration?: number;
-    plainLyrics?: string;
-    syncedLyrics?: string;
-    instrumental?: boolean;
-}
-redux.intercept("content/LOAD_ITEM_LYRICS_FAIL", unloads, async (payload) => {
-    const track = await MediaItem.fromId(payload.itemId, 'track');
-    if (!track) return;
-    const [title, artist, album] = await Promise.all([
-        track.title(),
-        track.artist(),
-        track.album()
-    ]);
-    const albumName = album ? await album.title() || '' : '';
-    const albumNameVariations = (albumName.includes('(') ? [albumName, albumName.split('(')[0].trim()] : [albumName]);
-    const artistName = artist?.name;
-    const artistNameVariations = artistName?.includes(',') ? [artistName, artistName.split(',')[0].trim()] : [artistName];
-    const titleVariations = title?.includes('(') ? [title, title.split('(')[0].trim()] : [title];
+};
 
-    const variations = [
-        ...albumNameVariations.map(album => ({ title, artist: artistName, album })),
-        ...artistNameVariations.map(artist => ({ title, artist, album: albumName })),
-        ...titleVariations.map(title => ({ title, artist: artistName, album: albumName })),
-        ...titleVariations.map(title => ({ title, artist: artistName, album: undefined })),
-        ...artistNameVariations.map(artist => ({ title, artist: undefined, album: albumName })),
-        ...albumNameVariations.map(album => ({ title, artist: artistName, album: albumName })),
-        ...titleVariations.map(title => ({ title, artist: artistName, album: '' })),
-        ...artistNameVariations.map(artist => ({ title, artist: artistName, album: '' })),
-        ...albumNameVariations.map(album => ({ title, artist: artistName, album: '' }))
-    ].filter(variation => variation.title && variation.title.trim());
+async function getLRCLIBLyrics(
+    title: string,
+    artist: string,
+    album: string
+): Promise<LRCLIBResult | null> {
+    const params = new URLSearchParams({
+        track_name: title,
+        artist_name: artist,
+    });
 
-    const uniqueVariations = Array.from(new Set(variations.map(v => JSON.stringify(v)))).map(v => JSON.parse(v));
+    if (album) {
+        params.set("album_name", album);
+    }
 
-    const fetchLyrics = (params: { title?: string; artist?: string; album?: string }) => {
-        const urlParams = new URLSearchParams({
-            track_name: params.title || '',
-            artist_name: params.artist || ''
-        });
-        if (params.album) urlParams.append('album_name', params.album);
+    const url = `https://lrclib.net/api/get?${params}`;
 
-        return ftch.json<LyricsData>(`https://lrclib.net/api/get?${urlParams}`);
-    };
+    trace.log(`Requesting: ${url}`);
 
     try {
-        for (const params of uniqueVariations) {
-            try {
-                const lyricsData = await fetchLyrics(params);
-                if (lyricsData) {
-                    await redux.actions["content/LOAD_ITEM_LYRICS_SUCCESS"]({
-                        isRightToLeft: false,
-                        lyrics: lyricsData.plainLyrics || "",
-                        lyricsProvider: "lrclib",
-                        trackId: payload.itemId,
-                        subtitles: lyricsData.syncedLyrics || '',
-                        providerLyricsId: lyricsData.id || 0,
-                        providerCommontrackId: lyricsData.id || 0,
-                    });
-                    trace.log(`Loaded lyrics for track: ${title} (${payload.itemId})`);
-                    return;
-                }
-            } catch { }
+        const result = await ftch.json(url) as LRCLIBResult;
+
+        if (!result?.plainLyrics && !result?.syncedLyrics) {
+            return null;
         }
-    } catch (e) {
-        trace.msg.err("Failed to fetch lyrics:", e);
-        return;
+
+        return result;
+    } catch (error) {
+        trace.log(`No LRCLIB result for ${title}`);
+        return null;
+    }
+}
+
+MediaItem.onMediaTransition(unloads, async (track) => {
+    try {
+        const [title, artist, album] = await Promise.all([
+            track.title(),
+            track.artist(),
+            track.album(),
+        ]);
+
+        if (!title) {
+            return;
+        }
+
+        const artistName = artist?.name ?? "";
+        const albumName = album ? await album.title() : "";
+
+        trace.log(`Track: ${title} - ${artistName}`);
+
+        try {
+            const tidalLyrics = await track.lyrics();
+
+            if (tidalLyrics) {
+                trace.log(`TIDAL has lyrics: ${title}`);
+                return;
+            }
+        } catch {
+            trace.log(`TIDAL has no lyrics: ${title}`);
+        }
+
+        const lyrics = await getLRCLIBLyrics(
+            title,
+            artistName,
+            albumName
+        );
+
+        if (!lyrics) {
+            trace.log(`LRCLIB also has no lyrics: ${title}`);
+            return;
+        }
+
+        trace.log(`LRCLIB FOUND LYRICS: ${title}`);
+        trace.log(lyrics);
+    } catch (error) {
+        trace.msg.err("LRCLIB error:", error);
     }
 });

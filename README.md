@@ -1,46 +1,15 @@
-# vMohammad's Luna Plugins
+# doru10 Luna Plugins
 
-A collection of plugins for **[Tidal Luna](https://github.com/Inrixia/TidaLuna)** by vMohammad.
+Plugins for TidaLuna.
 
-# Depreciation Notice
+## LRCLIB
 
-This repository is now deprecated. If you use any of the plugins and reupload them as your own, please give proper credit to the original author (me) and link back to this repository.
+`@doru10/lrclib`
 
-## Plugins
+Adds LRCLIB support for tracks where TIDAL does not provide lyrics.
 
-### @vmohammad/betterFullscreen
+## Install
 
-Provides a better fullscreen experience for Tidal with better lyrics and a better UI.
+Add this store URL in TidaLuna:
 
-### @vmohammad/api
-
-Provides a local HTTP and WebSocket API for real-time access to Tidal Data. The API server runs on port **24123**.
-
-For more information please visit it's documentation [here](https://github.com/vMohammad24/luna-plugins/tree/master/plugins/api).
-
-### @vmohammad/lrclib
-
-Uses [lrclib](https://lrclib.net) to fetch lyrics when Tidal (Musixmatch) fails to provide them.
-
-### @vmohammad/translate
-
-Uses [Google Translate](https://translate.google.com/) to translate lyrics into your preferred language.
-
-### @vmohammad/noTrack
-
-Disables Tidal's tracking features, such as Sentry and event-batch requests to enhance user privacy.
-
-### @vmohammad/mpv
-
-Integrates [mpv](https://mpv.io/) as an external player for Tidal, allowing for enhanced audio playback options including audio exclusivity on Linux.
-
-### @vmohammad/quickExclusiveMode
-
-Adds a button to quickly toggle audio exclusive mode on and off (works with both Tidal's player and mpv).
-
-## Usage
-
-1. Install Tidal Luna
-2. Go to Luna Settings > Plugin Store
-3. Scroll down until you find "@vmohammad/plugins"
-4. Click on the plugin you want to install
+https://github.com/doru10/luna-plugins/releases/download/latest/store.json

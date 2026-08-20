@@ -1,8 +1,8 @@
 {
-	"name": "@vmohammad/plugins",
-	"description": "A collection of plugins for TidaLuna made by vMohammad (Deprecated)",
+	"name": "@doru10/plugins",
+	"description": "LRCLIB lyrics fallback plugin for TidaLuna",
 	"type": "module",
-	"author": "vMohammad",
+	"author": "doru10",
 	"scripts": {
 		"watch": "concurrently -r \"pnpm serve\" \"watchexec -e ts,tsx,css -i 'dist/**' -- pnpm build\"",
 		"build": "rimraf ./dist && tsx esbuild.config.ts",
@@ -21,7 +21,7 @@
 		"concurrently": "^9.1.2",
 		"electron": "^37.2.5",
 		"http-server": "^14.1.1",
-		"luna": "github:Inrixia/TidaLuna#af2a18b",
+		"luna": "github:Inrixia/TidaLuna",
 		"oby": "^15.1.2",
 		"rimraf": "^6.0.1",
 		"tsx": "^4.19.4",
